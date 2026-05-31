@@ -1,75 +1,74 @@
-# -*- coding: UTF-8 -*-
-
 from pyrevit import revit
 from pyrevit import DB
+from pyrevit import forms
 
-#importaciones basicas
 doc = revit.doc
-view = revit.active_view
+view = doc.ActiveView
 
-# incluyenfdo las referencias de los elementos seleccionados
+walls = (
+    DB.FilteredElementCollector(doc, view.Id)
+    .OfClass(DB.Wall)
+    .WhereElementIsNotElementType()
+    .ToElements()
+)
 
-opt = DB.Options()
-opt.ComputeReferences = True
-opt.View = view
+if not walls:
+    forms.alert("No se encontraron muros")
+    raise Exception()
 
+wall = walls[0]
 
-#Todos los muros
+curve = wall.Location.Curve
 
-muros = DB.FilteredElementCollector(doc, view.Id)\
-    .OfCategory(DB.BuiltInCategory.OST_Walls)\
-    .WhereElementIsNotElementType().ToElements()
+start_point = curve.GetEndPoint(0)
+end_point = curve.GetEndPoint(1)
 
+offset = DB.XYZ(0, 5, 0)
 
-# lista de lineas de referencia ( ReferenceArray)
+dim_line = DB.Line.CreateBound(
+    start_point + offset,
+    end_point + offset
+)
+
+options = DB.Options()
+options.ComputeReferences = True
+
+geometry = wall.get_Geometry(options)
+
+references = []
+
+for geo in geometry:
+
+    if not isinstance(geo, DB.Solid):
+        continue
+
+    for face in geo.Faces:
+
+        if face.Reference:
+            references.append(face.Reference)
+
+if len(references) < 2:
+    forms.alert(
+        "No se encontraron referencias suficientes"
+    )
+    raise Exception()
 
 ref_array = DB.ReferenceArray()
 
-for muro in muros:
-    geom = muro.get_Geometry(opt)
-    for obj in geom:
-        if obj.GetType().Name == 'Solid':
-            for cara in obj.Faces:
-                normal = cara.FaceNormal
+ref_array.Append(references[0])
+ref_array.Append(references[1])
 
-                if abs(normal.Z) < 0.01:
-                    ref_array.Append(cara.Reference)
-                    break
+t = DB.Transaction(
+    doc,
+    "Dimension Wall"
+)
 
-# BoundingBox de todos los muros para saber dónde estan
-bb = view.get_BoundingBox(None)
-min_pt = bb.Min
-max_pt = bb.Max
-
-# La linea va de lado a lado de la vista, un poco mas arriba del modelo
-pt1 = DB.XYZ(min_pt.X - 5, max_pt.Y + 3, 0)
-pt2 = DB.XYZ(max_pt.X + 5, max_pt.Y + 3, 0)
-linea = DB.Line.CreateBound(pt1, pt2)
-
-
-# Diagnostico
-print("Muros encontrados:", len(list(muros)))
-print("Referencias encontradas:", ref_array.Size)
-print("Vista tipo:", view.ViewType)
-
-# Ver coordenadas reales del modelo
-bb = view.get_BoundingBox(None)
-print("Min:", bb.Min.X, bb.Min.Y)
-print("Max:", bb.Max.X, bb.Max.Y)
-
-
-for i in range(ref_array.Size):
-    ref = ref_array.get_Item(i)
-    print("Ref", i, ":", ref.ElementId, " - ", ref.LinkedElementId)
-
-#creacion de cota
-t = DB.Transaction(doc, 'Crear cota')
 t.Start()
-try:
-    dim = doc.Create.NewDimension(view, linea, ref_array)
-    print("Dimension creada:", dim.Id)
-    t.Commit()
-    print("Transaction committed")
-except Exception as e:
-    t.RollBack()
-    print("ERROR:", e)
+
+doc.Create.NewDimension(
+    view,
+    dim_line,
+    ref_array
+)
+
+t.Commit()
