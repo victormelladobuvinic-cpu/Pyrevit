@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+import json
 from pyrevit import revit
 from pyrevit import DB
 from pyrevit import forms
@@ -5,48 +7,51 @@ from pyrevit import forms
 doc = revit.doc
 view = doc.ActiveView
 
-walls = (
+# Obtener puertas de la vista actual
+puertas = (
     DB.FilteredElementCollector(doc, view.Id)
-    .OfClass(DB.Wall)
+    .OfCategory(DB.BuiltInCategory.OST_Doors)
     .WhereElementIsNotElementType()
     .ToElements()
 )
 
-ventanas =  (
-    DB.FilteredElementCollector(doc, view.Id)
-    .OfClass(DB.Window)
-    .WhereElementIsNotElementType()
-    .ToElements()
+diccionario_conteo = {}
+
+for puerta in puertas:
+    # 1. Obtener Familia y Tipo de forma segura
+    nombre_familia = puerta.Symbol.Family.Name
+    nombre_tipo = puerta.Symbol.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
+    
+    # 2. Construir la clave
+
+    clave = (nombre_familia, nombre_tipo)
+
+    if clave not in diccionario_conteo:
+        diccionario_conteo[clave] = 0
+    diccionario_conteo[clave] += 1
+
+    
+# Crear lista par UI
+
+lista_ui = []
+
+for clave, cantidad in diccionario_conteo.items():
+
+    familia = clave[0]
+    tipo = clave[1]
+
+    texto "{}: {} [{}]".format( familia, tipo, cantidad)
+
+lista_ui.append(texto)
+
+# Mostrar resultados en UI
+
+seleccion = forms.SelectFromList.show(
+    lista_ui,
+    title="seleciona puertas",
+    multiselect=True
 )
 
-t = DB.Transaction(doc, "Auto Tag")
-
-t.Start()
-
-for ventana in ventanas:
-
-    curve = ventana.Location.Curve
-
-    midpoint = curve.Evaluate(
-        0.5,
-        True
-    )
-
-    reference = DB.Reference(ventana)
-
-    DB.IndependentTag.Create(
-        doc,
-        view.Id,
-        reference,
-        False,
-        DB.TagMode.TM_ADDBY_CATEGORY,
-        DB.TagOrientation.Horizontal,
-        midpoint,
-        DB.XYZ(50, 0, 0)
-    )
-
-t.Commit()
+forms.alert(str(seleccion))
 
 
-forms.alert("Etiquetas creadas")
-forms.alert("se etiquetaron {} ventanas".format(len(ventanas)))
