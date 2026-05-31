@@ -1,6 +1,8 @@
 # -*- coding: UTF-8 -*-
 
-from pyrevit import revit, DB
+from pyrevit import revit
+from pyrevit import DB
+
 #importaciones basicas
 doc = revit.doc
 view = revit.active_view
@@ -48,8 +50,26 @@ linea = DB.Line.CreateBound(pt1, pt2)
 # Diagnostico
 print("Muros encontrados:", len(list(muros)))
 print("Referencias encontradas:", ref_array.Size)
+print("Vista tipo:", view.ViewType)
+
+# Ver coordenadas reales del modelo
+bb = view.get_BoundingBox(None)
+print("Min:", bb.Min.X, bb.Min.Y)
+print("Max:", bb.Max.X, bb.Max.Y)
+
+
+for i in range(ref_array.Size):
+    ref = ref_array.get_Item(i)
+    print("Ref", i, ":", ref.ElementId, " - ", ref.LinkedElementId)
 
 #creacion de cota
-with revit.Transaction('Crear cota'):
-    doc.Create.NewDimension(view, linea, ref_array)
-
+t = DB.Transaction(doc, 'Crear cota')
+t.Start()
+try:
+    dim = doc.Create.NewDimension(view, linea, ref_array)
+    print("Dimension creada:", dim.Id)
+    t.Commit()
+    print("Transaction committed")
+except Exception as e:
+    t.RollBack()
+    print("ERROR:", e)
