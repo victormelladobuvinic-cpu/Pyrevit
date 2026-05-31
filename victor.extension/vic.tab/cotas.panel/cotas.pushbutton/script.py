@@ -9,7 +9,7 @@ view = revit.active_view
 
 opt = DB.Options()
 opt.ComputeReferences = True
-opt.view = view
+opt.View = view
 
 
 #Todos los muros
