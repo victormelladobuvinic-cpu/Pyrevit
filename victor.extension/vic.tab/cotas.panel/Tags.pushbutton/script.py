@@ -114,7 +114,7 @@ t.Start()
 for puerta in puertas_seleccionadas:
 
     point = puerta.Location.Point
-    tag_point = point + DB.XYZ(0, 2, 0)
+    tag_point = point + DB.XYZ(0, 1, 0)
 
     DB.IndependentTag.Create(
         doc,
@@ -133,7 +133,7 @@ t.Commit()
 if puertas_seleccionadas:
 
     forms.alert(
-        "Seleccionaste {} puertas".format(
+        "Tagueaste {} puertas".format(
             len(puertas_seleccionadas)
         )
     )
