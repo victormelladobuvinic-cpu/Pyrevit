@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-import json
-from pyrevit import revit
-from pyrevit import DB
-from pyrevit import forms
+
+from pyrevit import revit, DB, forms
+
 
 doc = revit.doc
 view = doc.ActiveView
 
-# Obtener puertas de la vista actual
+
+# ---------------------------------------------------
+# OBTENER PUERTAS
+# ---------------------------------------------------
+
 puertas = (
     DB.FilteredElementCollector(doc, view.Id)
     .OfCategory(DB.BuiltInCategory.OST_Doors)
@@ -15,43 +18,105 @@ puertas = (
     .ToElements()
 )
 
-diccionario_conteo = {}
+
+# ---------------------------------------------------
+# CREAR CATALOGO
+# clave -> lista de puertas
+# ---------------------------------------------------
+
+catalogo_puertas = {}
 
 for puerta in puertas:
-    # 1. Obtener Familia y Tipo de forma segura
-    nombre_familia = puerta.Symbol.Family.Name
-    nombre_tipo = puerta.Symbol.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
-    
-    # 2. Construir la clave
 
-    clave = (nombre_familia, nombre_tipo)
+    familia = puerta.Symbol.Family.Name
 
-    if clave not in diccionario_conteo:
-        diccionario_conteo[clave] = 0
-    diccionario_conteo[clave] += 1
+    tipo = puerta.Symbol.get_Parameter(
+        DB.BuiltInParameter.SYMBOL_NAME_PARAM
+    ).AsString()
 
-    
-# Crear lista par UI
+    clave = (
+        familia,
+        tipo
+    )
+
+    if clave not in catalogo_puertas:
+
+        catalogo_puertas[clave] = []
+
+    catalogo_puertas[clave].append(
+        puerta
+    )
+
+
+# ---------------------------------------------------
+# CREAR LISTA PARA UI
+# ---------------------------------------------------
 
 lista_ui = []
+mapa_ui = {}
 
-for clave, cantidad in diccionario_conteo.items():
+for clave, lista_puertas in catalogo_puertas.items():
 
-    familia = clave[0]
-    tipo = clave[1]
+    familia, tipo = clave
 
-    texto "{}: {} [{}]".format( familia, tipo, cantidad)
+    cantidad = len(
+        lista_puertas
+    )
 
-lista_ui.append(texto)
+    texto = "{} | {} [{}]".format(
+        familia,
+        tipo,
+        cantidad
+    )
 
-# Mostrar resultados en UI
+    lista_ui.append(
+        texto
+    )
+
+    mapa_ui[texto] = clave
+
+
+# ---------------------------------------------------
+# MOSTRAR UI
+# ---------------------------------------------------
 
 seleccion = forms.SelectFromList.show(
-    lista_ui,
-    title="seleciona puertas",
+    sorted(lista_ui),
+    title="Seleccione puertas",
     multiselect=True
 )
 
-forms.alert(str(seleccion))
+claves_seleccionadas = []
+puertas_seleccionadas = []
 
+for texto in seleccion:
 
+    clave = mapa_ui[texto]
+
+    claves_seleccionadas.append(
+        clave
+    )
+
+for clave in claves_seleccionadas:
+
+    puertas_seleccionadas.extend(
+        catalogo_puertas[clave]
+    )
+
+# ---------------------------------------------------
+# RESULTADO
+# ---------------------------------------------------
+
+if puertas_seleccionadas:
+
+    forms.alert(
+        "Seleccionaste {} puertas".format(
+            len(puertas_seleccionadas)
+        )
+    )
+
+else:
+
+    forms.alert(
+        "No se seleccionó nada"
+    )
