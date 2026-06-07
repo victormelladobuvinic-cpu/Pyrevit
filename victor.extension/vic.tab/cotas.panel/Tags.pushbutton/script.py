@@ -102,7 +102,28 @@ for clave in claves_seleccionadas:
     puertas_seleccionadas.extend(
         catalogo_puertas[clave]
     )
+# ---------------------------------------------------
+# TRANSACCION
+# ---------------------------------------------------
 
+t = DB.Transaction(doc, "Taguear puertas")
+t.Start()
+
+point = puerta.Location.Point
+tag_point = point + DB.XYZ(0, 20, 0)
+
+for puerta in puertas_seleccionadas:
+
+    DB.TagElement.Create(
+        doc,
+        view.Id,
+        DB.Reference(puerta),
+        False,
+        DB.TagMode.TM_ADDBY_CATEGORY,
+        DB.TagOrientation.Horizontal,
+        tag_point
+    )
+t.Commit()
 # ---------------------------------------------------
 # RESULTADO
 # ---------------------------------------------------
