@@ -109,16 +109,18 @@ for clave in claves_seleccionadas:
 t = DB.Transaction(doc, "Taguear puertas")
 t.Start()
 
-point = puerta.Location.Point
-tag_point = point + DB.XYZ(0, 20, 0)
+
 
 for puerta in puertas_seleccionadas:
 
-    DB.TagElement.Create(
+    point = puerta.Location.Point
+    tag_point = point + DB.XYZ(0, 2, 0)
+
+    DB.IndependentTag.Create(
         doc,
         view.Id,
         DB.Reference(puerta),
-        False,
+        True,
         DB.TagMode.TM_ADDBY_CATEGORY,
         DB.TagOrientation.Horizontal,
         tag_point
